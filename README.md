@@ -24,10 +24,10 @@ Không cần bước build: frontend là ES module thuần. Preact, htm và Leaf
 
 ## Triển khai lên Render
 
-File `render.yaml` cấu hình sẵn: gunicorn (1 worker, nhiều luồng vì SSE chạy trong bộ nhớ), ổ đĩa 1 GB tại `/var/data` cho SQLite, `WAYPLOT_DEMO=0`, `WAYPLOT_SECRET` tự sinh.
+File `render.yaml` cấu hình sẵn gói **Free**: gunicorn (1 worker, nhiều luồng vì SSE chạy trong bộ nhớ), `WAYPLOT_DEMO=0`, `WAYPLOT_SECRET` tự sinh. Gói Free không có ổ đĩa: dữ liệu mất mỗi lần dịch vụ khởi động lại hoặc triển khai lại, và app ngủ sau khoảng 15 phút không có truy cập (lần mở đầu tiên sau đó mất chừng 1 phút). Muốn giữ dữ liệu: đổi sang `plan: starter` và thêm ổ đĩa tại `/var/data` với `WAYPLOT_DATA_DIR=/var/data`.
 
 1. Đẩy mã lên một repository GitHub.
-2. Trên Render: **New → Blueprint**, chọn repository đó, xác nhận. Ổ đĩa cần gói trả phí (Starter).
+2. Trên Render: **New → Blueprint**, chọn repository đó, xác nhận.
 3. Render cấp link dạng `https://wayplot-xxxx.onrender.com`. Gửi link đó cho mọi người.
 
 Ở chế độ chạy thật (`WAYPLOT_DEMO=0`), app không nạp dữ liệu và tài khoản demo; người dùng tự đăng ký.
