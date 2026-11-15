@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 *.cookies
 .env
+
+# Original full-size photos (compressed copies live in static/img/dest/)
+static/img/destinations/

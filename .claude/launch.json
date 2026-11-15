@@ -4,7 +4,8 @@
     {
       "name": "wayplot",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["app.py"],
+      "runtimeArgs": ["/home/duong-dang/Documents/wayplot/app.py"],
+      "cwd": "/home/duong-dang/Documents/wayplot",
       "port": 8000
     }
   ]

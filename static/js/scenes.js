@@ -1,5 +1,5 @@
 // Hand-drawn SVG vignettes of Vietnamese destinations (no external images).
-import { html, useRef } from "./lib.js";
+import { html, useRef, useState } from "./lib.js";
 
 let counter = 0;
 function useUid() {
@@ -152,14 +152,26 @@ const SCENES = {
 
 export const SCENE_IDS = Object.keys(SCENES);
 
-export function Scene({ id, label }) {
+// Real photos (static/img/dest/<id>.webp + a 600px "-s" copy). `art` forces the illustration,
+// used for the page backdrop and the glass-panel picker. A missing photo falls back to the illustration.
+const PHOTOS = new Set(["hanoi", "halong", "danang", "hoian", "hue", "dalat", "hcm", "sapa"]);
+const FOCUS = { danang: "62% 50%", hoian: "68% 50%", hue: "45% 60%", sapa: "50% 60%" };
+
+export function Scene({ id, label, art }) {
   const u = useUid();
+  const [broken, setBroken] = useState(false);
+  if (!art && !broken && PHOTOS.has(id)) {
+    const b = "/static/img/dest/" + id;
+    return html`<span class="scene photo" role=${label ? "img" : "presentation"} aria-label=${label || null} aria-hidden=${label ? null : "true"}>
+      <img src=${b + "-s.webp"} srcset=${`${b}-s.webp 600w, ${b}.webp 1400w`} sizes="(max-width: 760px) 100vw, 45vw"
+        alt="" loading="lazy" decoding="async" style=${FOCUS[id] ? `object-position:${FOCUS[id]}` : null} onError=${() => setBroken(true)} /></span>`;
+  }
   const draw = SCENES[id] || SCENES.halong;
   return html`<svg class="scene" viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" role=${label ? "img" : "presentation"} aria-label=${label || null} aria-hidden=${label ? null : "true"}>${draw(u)}</svg>`;
 }
 
 export function Backdrop({ id }) {
-  return html`<div class="backdrop" aria-hidden="true"><${Scene} id=${id} /></div>`;
+  return html`<div class="backdrop" aria-hidden="true"><${Scene} id=${id} art /></div>`;
 }
 
 /** Hero poster: travel-poster composition with red silk ribbon and a yellow star. */

@@ -333,6 +333,11 @@ input[type="date"].input { color-scheme: inherit; }
 .trip-card { display: flex; flex-direction: column; gap: 12px; }
 .trip-thumb { height: 120px; border-radius: 14px; overflow: hidden; position: relative; border: 1px solid var(--line); }
 svg.scene { display: block; width: 100%; height: 100%; }
+.scene.photo { display: block; position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--burgundy-deep); }
+.scene.photo img { display: block; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.04) contrast(1.02); }
+/* a light burgundy fade at the bottom keeps captions and badges readable and ties photos to the palette */
+.scene.photo::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(62, 10, 21, 0) 55%, rgba(62, 10, 21, .38) 100%); }
 .trip-thumb svg { width: 100%; height: 100%; }
 .trip-thumb .over { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; }
 .shared-note { margin-top: 6px; padding: 6px 10px; border-left: 2px solid var(--gold); border-radius: 0 8px 8px 0; background: var(--card-2); color: var(--text-2); font-style: italic; overflow-wrap: anywhere; }

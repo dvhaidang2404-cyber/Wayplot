@@ -36,7 +36,7 @@ function GlassPanel() {
         <${Seg} value=${g.theme} onChange=${(v) => setGlass({ theme: v })} options=${[{ value: "burgundy", label: t("glass.burgundy") }, { value: "cream", label: t("glass.cream") }]} /></div>
       <div class="field"><span class="label">${t("glass.scene")}</span>
         <div class="scene-pick">${["halong", "hoian", "sapa"].map((id) => html`
-          <button class=${g.scene === id ? "on" : ""} aria-pressed=${g.scene === id} aria-label=${t("scene." + id)} title=${t("scene." + id)} onClick=${() => setGlass({ scene: id })}><${Scene} id=${id} /></button>`)}</div></div>
+          <button class=${g.scene === id ? "on" : ""} aria-pressed=${g.scene === id} aria-label=${t("scene." + id)} title=${t("scene." + id)} onClick=${() => setGlass({ scene: id })}><${Scene} id=${id} art /></button>`)}</div></div>
       <div class="row between"><span class="small">${t("glass.reduce")}</span><${Switch} on=${g.reduce} label=${t("glass.reduce")} onChange=${(v) => setGlass({ reduce: v })} /></div>
     </div>
   </div>`;
