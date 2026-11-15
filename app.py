@@ -2,7 +2,7 @@
 
 Run:  python3 app.py            (http://127.0.0.1:8000)
 Env:  PORT, WAYPLOT_DEMO=1|0, WAYPLOT_AI_ENGINE=auto|local|claude, ANTHROPIC_API_KEY,
-      WAYPLOT_CLAUDE_MODEL, GOOGLE_MAPS_API_KEY, WAYPLOT_DATA_DIR, WAYPLOT_RESET=1
+      WAYPLOT_CLAUDE_MODEL, GOOGLE_MAPS_API_KEY, WAYPLOT_DATA_DIR, DATABASE_URL, WAYPLOT_RESET=1
 """
 import logging
 import os
@@ -19,8 +19,11 @@ STATIC = os.path.join(BASE, "static")
 
 
 def create_app():
-    if os.environ.get("WAYPLOT_RESET") == "1" and os.path.isdir(db.DATA_DIR):
-        shutil.rmtree(db.DATA_DIR)
+    if os.environ.get("WAYPLOT_RESET") == "1":
+        if db.IS_PG:
+            db.reset_db()
+        elif os.path.isdir(db.DATA_DIR):
+            shutil.rmtree(db.DATA_DIR)
     db.init_db()
     if os.environ.get("WAYPLOT_DEMO", "1") == "1":
         seed_if_empty()  # demo accounts share a published password: never seed them in production

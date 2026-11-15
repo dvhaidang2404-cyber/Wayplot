@@ -1,7 +1,7 @@
 # Render Blueprint: New > Blueprint, pick this repository.
-# Free plan: no persistent disk, so the SQLite data resets whenever the service restarts or redeploys,
-# and the service sleeps after ~15 minutes without traffic. For lasting data, switch to plan: starter
-# and add a disk mounted at /var/data with WAYPLOT_DATA_DIR=/var/data.
+# Free plan: no persistent disk and the service sleeps after ~15 minutes without traffic.
+# Data lives in an external Postgres (e.g. Neon free tier): set DATABASE_URL in the Render dashboard.
+# Without DATABASE_URL the app falls back to SQLite, which is wiped on every restart or redeploy.
 services:
   - type: web
     name: wayplot
@@ -19,3 +19,5 @@ services:
         value: "0"
       - key: WAYPLOT_SECRET
         generateValue: true
+      - key: DATABASE_URL
+        sync: false

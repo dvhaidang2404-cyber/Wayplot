@@ -24,7 +24,9 @@ Không cần bước build: frontend là ES module thuần. Preact, htm và Leaf
 
 ## Triển khai lên Render
 
-File `render.yaml` cấu hình sẵn gói **Free**: gunicorn (1 worker, nhiều luồng vì SSE chạy trong bộ nhớ), `WAYPLOT_DEMO=0`, `WAYPLOT_SECRET` tự sinh. Gói Free không có ổ đĩa: dữ liệu mất mỗi lần dịch vụ khởi động lại hoặc triển khai lại, và app ngủ sau khoảng 15 phút không có truy cập (lần mở đầu tiên sau đó mất chừng 1 phút). Muốn giữ dữ liệu: đổi sang `plan: starter` và thêm ổ đĩa tại `/var/data` với `WAYPLOT_DATA_DIR=/var/data`.
+File `render.yaml` cấu hình sẵn gói **Free**: gunicorn (1 worker, nhiều luồng vì SSE chạy trong bộ nhớ), `WAYPLOT_DEMO=0`, `WAYPLOT_SECRET` tự sinh. Gói Free không có ổ đĩa và app ngủ sau khoảng 15 phút không có truy cập (lần mở đầu tiên sau đó mất chừng 1 phút).
+
+Để dữ liệu không mất khi app ngủ hoặc triển khai lại, app lưu vào Postgres bên ngoài khi có biến `DATABASE_URL`. Ví dụ dùng gói miễn phí của [Neon](https://neon.tech): tạo project, sao chép chuỗi kết nối `postgresql://...`, dán vào **Environment** của dịch vụ trên Render với khóa `DATABASE_URL`. App tự tạo bảng ở lần khởi động đầu. Không đặt `DATABASE_URL` thì app dùng SQLite, và trên Render dữ liệu đó mất mỗi lần khởi động lại.
 
 1. Đẩy mã lên một repository GitHub.
 2. Trên Render: **New → Blueprint**, chọn repository đó, xác nhận.
@@ -59,9 +61,10 @@ Khi đã đăng nhập, có thể đổi tài khoản từ menu ảnh đại di�
 | `ANTHROPIC_API_KEY` | — | Khóa API Claude (hoặc `ANTHROPIC_AUTH_TOKEN`) |
 | `WAYPLOT_CLAUDE_MODEL` | `claude-opus-5-5` | Model Claude dùng để tạo lịch trình |
 | `GOOGLE_MAPS_API_KEY` | — | Tùy chọn: xác minh địa điểm tự nhập qua Google Places |
+| `DATABASE_URL` | — | Chuỗi kết nối Postgres. Có thì dùng Postgres; không có thì dùng SQLite |
 | `WAYPLOT_DATA_DIR` | `instance/` | Thư mục chứa `wayplot.db` và `secret.key` |
 | `WAYPLOT_SECRET` | tự sinh | Khóa ký mã mời. Nếu không đặt, app sinh và lưu vào `secret.key` |
-| `WAYPLOT_RESET` | — | `1` xóa thư mục dữ liệu khi khởi động |
+| `WAYPLOT_RESET` | — | `1` xóa toàn bộ dữ liệu khi khởi động (kể cả trên Postgres). Không đặt biến này trên Render |
 | `WAYPLOT_SIMULATE_AI_FAILURE` | — | `1` giả lập lỗi AI để thử màn hình lỗi và nút thử lại |
 
 ## AI tạo lịch trình
@@ -107,7 +110,7 @@ Khi đã đăng nhập, có thể đổi tài khoản từ menu ảnh đại di�
 
 - Thanh toán VIP thật, gửi email (quên mật khẩu chỉ trả lời chung chung), thông báo đẩy.
 - Danh mục chỉ gồm 8 điểm đến: Hà Nội, Hạ Long, Sa Pa, Huế, Đà Nẵng, Hội An, Đà Lạt, TP.HCM.
-- Một tiến trình Flask, SQLite và SSE trong bộ nhớ: đủ để demo, chưa dành cho nhiều máy chủ.
+- Một tiến trình Flask và SSE trong bộ nhớ (SQLite hoặc Postgres): đủ để demo, chưa dành cho nhiều máy chủ.
 
 ## Cấu trúc
 
@@ -116,6 +119,7 @@ app.py               Khởi động Flask, phục vụ SPA
 server/api.py        REST API (/api/...), CSRF qua header X-Requested-With
 server/services.py   Nghiệp vụ: chuyến đi, nhóm, mã mời, phiên bản, bình luận
 server/engine.py     Engine lập lịch nội bộ, sắp giờ, ngân sách
+server/db.py         Lưu trữ: SQLite, hoặc Postgres khi có DATABASE_URL
 server/ai.py         Lớp AI: engine nội bộ hoặc Claude
 server/catalog.py    Danh mục điểm đến và địa điểm
 server/realtime.py   SSE
