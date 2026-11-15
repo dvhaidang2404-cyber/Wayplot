@@ -1,0 +1,6 @@
+flask>=3.0,<3.2
+gunicorn>=22,<24
+
+# Optional: install to let Wayplot generate itineraries with Claude
+# (also set ANTHROPIC_API_KEY). Without it the built-in local engine is used.
+# anthropic

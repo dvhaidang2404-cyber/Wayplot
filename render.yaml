@@ -1,0 +1,24 @@
+# Render Blueprint: New > Blueprint, pick this repository.
+services:
+  - type: web
+    name: wayplot
+    runtime: python
+    plan: starter            # a persistent disk needs a paid instance
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    # One worker: realtime updates (SSE) are fanned out in memory. Threads serve concurrent users.
+    startCommand: gunicorn -w 1 -k gthread --threads 32 --timeout 0 -b 0.0.0.0:$PORT "app:create_app()"
+    healthCheckPath: /api/destinations
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: WAYPLOT_DEMO
+        value: "0"
+      - key: WAYPLOT_DATA_DIR
+        value: /var/data
+      - key: WAYPLOT_SECRET
+        generateValue: true
+    disk:
+      name: wayplot-data
+      mountPath: /var/data
+      sizeGB: 1
