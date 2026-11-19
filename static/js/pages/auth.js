@@ -103,7 +103,7 @@ function ForgotModal({ onClose, initial }) {
 }
 
 export function RegisterForm({ onDone, compact }) {
-  const [f, setF] = useState({ name: store.user && store.user.provider === "guest" ? store.user.name : "", email: "", password: "", confirm: "", agree: false });
+  const [f, setF] = useState({ name: store.user && store.user.provider === "guest" && !["Khách", "Guest"].includes(store.user.name) ? store.user.name : "", email: "", password: "", confirm: "", agree: false });
   const [err, setErr] = useState({});
   const [busy, setBusy] = useState(false);
   const [general, setGeneral] = useState(null);

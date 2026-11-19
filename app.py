@@ -28,6 +28,10 @@ def create_app():
     if os.environ.get("WAYPLOT_DEMO", "1") == "1":
         seed_if_empty()  # demo accounts share a published password: never seed them in production
     app = Flask(__name__, static_folder=None)
+    if os.environ.get("RENDER") or os.environ.get("WAYPLOT_PROXY") == "1":
+        # Behind Render's proxy: take the client IP from X-Forwarded-For so per-IP limits are per visitor.
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
     app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
     app.register_blueprint(bp)

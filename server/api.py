@@ -89,6 +89,10 @@ def login():
     u = q1("SELECT * FROM users WHERE email=?", (email,))
     if not u or not u["password_hash"] or not security.check_password(b.get("password") or "", u["password_hash"]):
         return jsonify({"error": "invalid_credentials"}), 401
+    if g.user and g.user["auth_provider"] == "guest" and g.user["id"] != u["id"]:
+        # Keep what the visitor planned as a guest: move their personal trips to the account they signed in to.
+        ex("UPDATE trips SET owner_id=? WHERE owner_id=? AND trip_type='personal'", (u["id"], g.user["id"]))
+        security.drop_session(request.cookies.get(COOKIE))
     return _set_cookie(jsonify({"user": services.user_public(u)}), security.create_session(u["id"]))
 
 
@@ -98,6 +102,18 @@ def logout():
     resp = jsonify({"ok": True})
     resp.delete_cookie(COOKIE, path="/")
     return resp
+
+
+@bp.post("/auth/guest")
+def guest():
+    """Start a guest session so visitors can try planning before registering.
+    Registering later upgrades this same account and keeps its trips."""
+    if g.user:
+        return jsonify({"user": services.user_public(g.user)})
+    services._rate_limit("guest:" + (request.remote_addr or "?"), (20, 3600))
+    name = "Guest" if body().get("lang") == "en" else "Khách"
+    u = services.create_user(name, None, None, provider="guest")
+    return _set_cookie(jsonify({"user": services.user_public(u)}), security.create_session(u["id"])), 201
 
 
 @bp.get("/auth/me")
@@ -264,6 +280,8 @@ def retry(gid):
 @bp.post("/trips/<tid>/save")
 @auth_required
 def save_trip(tid):
+    if g.user["auth_provider"] == "guest":
+        return jsonify({"error": "register_required"}), 403
     t, grp, m = services.trip_access(tid, g.user["id"])
     if t["trip_type"] != "personal":
         return jsonify({"error": "use_finalize"}), 409
@@ -334,6 +352,8 @@ def delete_trip(tid):
 @bp.post("/groups")
 @auth_required
 def create_group():
+    if g.user["auth_provider"] == "guest":
+        return jsonify({"error": "register_required"}), 403
     grp, code = services.create_group(g.user, body())
     return jsonify({"group_id": grp["id"], "trip_id": grp["trip_id"], "invite": code}), 201
 
@@ -513,9 +533,12 @@ def refine(oid):
     try:
         new = ai.refine({"profile": prof, "entries": entries, "travelers": travelers}, data, b.get("op"),
                         (b.get("instruction") or "").strip() or None)
+    except ai.RefineNotUnderstood:
+        return jsonify({"error": "refine_not_understood"}), 422
     except ai.AIError as e:
         return jsonify({"error": "ai_failed", "detail": str(e)}), 502
-    return jsonify({"data": new, "engine": ai.engine_name()})
+    applied = new.pop("_applied", [])
+    return jsonify({"data": new, "engine": ai.engine_name(), "applied": applied})
 
 
 @bp.get("/itineraries/<oid>/alternatives")

@@ -303,8 +303,8 @@ def extend_code(group_id, hours=INVITE_HOURS):
     return current_invite(group_id)
 
 
-def _rate_limit(user_key):
-    limit, window = JOIN_ATTEMPTS
+def _rate_limit(user_key, limits=None):
+    limit, window = limits or JOIN_ATTEMPTS
     since = db.iso_in(seconds=-window)
     ex("DELETE FROM join_attempts WHERE created_at<?", (since,))
     n = q1("SELECT COUNT(*) n FROM join_attempts WHERE user_key=? AND created_at>=?", (user_key, since))["n"]
@@ -423,6 +423,14 @@ def room(group_id, viewer):
     my_sub = q1("SELECT * FROM member_submissions WHERE group_id=? AND user_id=?", (group_id, viewer["id"]))
     gen = q1("SELECT * FROM generations WHERE group_id=? ORDER BY started_at DESC", (group_id,))
     opts = [option_card(o) for o in options_for_trip(t["id"])]
+    # Plans are a snapshot: preferences sent after the last completed generation are not in them.
+    last_done = q1("SELECT started_at, snapshot_json FROM generations WHERE group_id=? AND status='completed' "
+                   "ORDER BY started_at DESC", (group_id,)) if opts else None
+    if last_done:
+        snap_ids = {e.get("user_id") for e in (jload(last_done["snapshot_json"], {}) or {}).get("entries", [])}
+        for mem, r in zip(members, st["rows"]):
+            mem["after_plan"] = bool(r["submission_status"] == "submitted" and (
+                (r["sub_updated"] or "") > last_done["started_at"] or (snap_ids and r["user_id"] not in snap_ids)))
     ent = entitlement(g["leader_id"])
     used = q1("SELECT COUNT(*) n FROM generations WHERE group_id=? AND counted=1", (group_id,))["n"]
     feed = q("""SELECT l.*, u.name FROM activity_logs l LEFT JOIN users u ON u.id=l.actor_id
@@ -442,6 +450,8 @@ def room(group_id, viewer):
         "invite": current_invite(group_id) if is_leader else None,
         "generation": generation_public(gen) if gen else None,
         "options": opts,
+        "plans_at": last_done["started_at"] if last_done else None,
+        "after_plan": [{"id": mem["id"], "name": mem["name"]} for mem in members if mem.get("after_plan")],
         "quota": {"used": used, "limit": ent["group_generations"], "max_plans": ent["max_plans"],
                   "plan": user_plan(g["leader_id"])},
         "feed": [{"action": f["action"], "name": f["name"], "summary": jload(f["payload_summary"], {}),

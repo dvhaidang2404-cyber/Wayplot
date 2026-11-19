@@ -12,13 +12,41 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const newId = () => "n" + Math.random().toString(36).slice(2, 10);
 
 // ---------------------------------------------------------------- timeline
-function ActivityItem({ a, n, selected, onSelect, canEdit, canComment, ops, first, last }) {
-  const end = hm(toMin(a.start) + (a.duration || 0));
+// Stops are shown by part of day (morning / midday / afternoon / evening) in visiting order,
+// without clock times. Every stop gets a number, matching its pin on the map.
+const SESSIONS = [
+  { key: "morning", icon: "sunrise", until: 11 * 60 + 30 },
+  { key: "noon", icon: "sun", until: 14 * 60 },
+  { key: "afternoon", icon: "sunset", until: 18 * 60 },
+  { key: "evening", icon: "moon", until: 24 * 60 },
+];
+export const sessionOf = (a) => SESSIONS.find((x) => toMin(a.start) < x.until) || SESSIONS[3];
+
+// Google Maps links. Search by name + address + city so Google opens the place's own card
+// (photos, reviews, website); coordinates are only a fallback because ours are estimates.
+export function gmapsQuery(a, city) {
+  const name = L(a.name);
+  if (name) return [name, a.address, city].filter(Boolean).join(", ");
+  return a.lat != null && a.lng != null ? `${a.lat},${a.lng}` : city;
+}
+const coordOr = (a, city) => (a.lat != null && a.lng != null ? `${a.lat},${a.lng}` : gmapsQuery(a, city));
+export const gmapsView = (a, city) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(gmapsQuery(a, city));
+export const gmapsDir = (a, city) => "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(gmapsQuery(a, city));
+function gmapsDay(acts, city) {
+  const stops = acts.filter((a) => a.lat != null || (a.kind !== "free" && a.kind !== "rest")).map((a) => coordOr(a, city));
+  if (stops.length < 2) return null;
+  const dest = stops[stops.length - 1];
+  const way = stops.slice(0, -1).slice(0, 9);
+  return "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(way[0]) + "&destination=" + encodeURIComponent(dest)
+    + (way.length > 1 ? "&waypoints=" + encodeURIComponent(way.slice(1).join("|")) : "") + "&travelmode=driving";
+}
+
+function ActivityItem({ a, n, selected, onSelect, canEdit, canComment, ops, first, last, city }) {
   const numCls = a.kind === "meal" ? "meal" : a.kind === "free" || a.kind === "rest" ? "free" : "";
   const lg = a.travel_to_next;
+  const mappable = a.kind !== "free" && a.kind !== "rest";
   return html`<div class="tl-item">
-    <div class="tl-time">${a.start}<span class="end">${end}</span></div>
-    <div class="tl-rail"><span class=${"tl-num " + numCls}>${a.kind === "rest" ? html`<${Icon} n="wave" s=${13} />` : a.kind === "free" ? html`<${Icon} n="food" s=${13} />` : n}</span></div>
+    <div class="tl-rail"><span class=${"tl-num " + numCls}>${n}</span></div>
     <div>
       <div class=${"tl-card " + (selected ? "on" : "")} role="button" tabindex="0" aria-expanded=${selected}
         onClick=${() => onSelect(selected ? null : a.id)} onKeyDown=${(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onSelect(selected ? null : a.id))}>
@@ -36,11 +64,14 @@ function ActivityItem({ a, n, selected, onSelect, canEdit, canComment, ops, firs
         ${a.overlap && html`<div class="err mt1"><${Icon} n="alert" s=${13} />${t("it.overlap")}</div>`}
         ${a.late && html`<div class="err mt1"><${Icon} n="moon" s=${13} />${t("it.late")}</div>`}
         ${selected && a.note && L(a.note) && html`<p class="small muted" style="margin:8px 0 0">${L(a.note)}</p>`}
+        ${selected && mappable && html`<div class="gmaps-row" onClick=${(e) => e.stopPropagation()}>
+          <a class="gmaps-btn view" href=${gmapsView(a, city)} target="_blank" rel="noopener noreferrer"><${Icon} n="pin" s=${16} />${t("it.gm_view")}</a>
+          <a class="gmaps-btn dir" href=${gmapsDir(a, city)} target="_blank" rel="noopener noreferrer"><${Icon} n="navigate" s=${16} />${t("it.gm_dir")}</a>
+        </div>`}
         ${selected && (canEdit || canComment) && html`<div class="tl-actions" onClick=${(e) => e.stopPropagation()}>
           ${canEdit && html`
             <${Btn} kind="ghost" icon="arrowUp" disabled=${first} onClick=${() => ops.move(-1)}>${t("it.up")}<//>
             <${Btn} kind="ghost" icon="arrowDown" disabled=${last} onClick=${() => ops.move(1)}>${t("it.down")}<//>
-            <${Btn} kind="ghost" icon="clock" onClick=${ops.time}>${t("it.time")}<//>
             ${(a.kind === "visit" || a.kind === "meal") && html`<${Btn} kind="ghost" icon="swap" onClick=${ops.replace}>${t("it.replace")}<//>`}
             <${Btn} kind="ghost" icon="trash" onClick=${ops.remove}>${t("it.delete")}<//>`}
           ${canComment && html`<${Btn} kind="ghost" icon="message" onClick=${ops.comment}>${t("it.comment_on")}<//>`}
@@ -49,6 +80,22 @@ function ActivityItem({ a, n, selected, onSelect, canEdit, canComment, ops, firs
       ${lg && html`<div class="tl-travel"><span class="ln"><${Icon} n=${MODE_ICON[lg.mode] || "route"} s=${13} /></span>${t("it.travel", { m: lg.minutes, mode: t("it.mode." + lg.mode), km: lg.km })}</div>`}
     </div>
   </div>`;
+}
+
+function Timeline({ numbered, active, setActive, perms, opsFor, city }) {
+  const groups = [];
+  numbered.forEach((x, i) => {
+    const se = sessionOf(x.a);
+    const g = groups[groups.length - 1];
+    if (g && g.se.key === se.key) g.items.push({ ...x, i });
+    else groups.push({ se, items: [{ ...x, i }] });
+  });
+  return groups.map((g) => html`<section class="tl-session">
+    <div class="tl-session-head"><span class="ic"><${Icon} n=${g.se.icon} s=${15} /></span>
+      <span class="lb">${t("it.s." + g.se.key)}</span><span class="faint small">${t("it.s.count", { n: g.items.length })}</span></div>
+    <div class="timeline">${g.items.map(({ a, n, i }) => html`<${ActivityItem} key=${a.id} a=${a} n=${n} city=${city} selected=${active === a.id} onSelect=${setActive}
+      canEdit=${perms.can_edit} canComment=${perms.can_comment} ops=${opsFor(i)} first=${i === 0} last=${i === numbered.length - 1} />`)}</div>
+  </section>`);
 }
 
 // ------------------------------------------------------------------ budget
@@ -170,7 +217,7 @@ function Discussion({ oid, perms, data, about, setAbout, onJump, isGroup }) {
         <${Field} id="about" label=${t("cm.about")}>
           <select id="about" class="select" value=${about || ""} onChange=${(e) => setAbout(e.target.value || null)}>
             <option value="">${t("cm.whole")}</option>
-            ${data.days.map((d) => html`<optgroup label=${t("it.day", { n: d.day })}>${d.activities.map((a) => html`<option value=${a.id}>${a.start} · ${L(a.name)}</option>`)}</optgroup>`)}
+            ${data.days.map((d) => html`<optgroup label=${t("it.day", { n: d.day })}>${d.activities.map((a) => html`<option value=${a.id}>${t("it.s." + sessionOf(a).key)} · ${L(a.name)}</option>`)}</optgroup>`)}
           </select><//>
         <${Field} id="cbody" error=${err}>
           <textarea id="cbody" class=${"textarea " + (err ? "invalid" : "")} maxlength="2000" placeholder=${t("cm.placeholder")} value=${body} onInput=${(e) => { setBody(e.target.value); setErr(null); }} aria-label=${t("cm.placeholder")} /><//>
@@ -182,25 +229,6 @@ function Discussion({ oid, perms, data, about, setAbout, onJump, isGroup }) {
 }
 
 // ------------------------------------------------------------------ modals
-function TimeModal({ a, onSave, onClose }) {
-  const [start, setStart] = useState(a.start);
-  const [dur, setDur] = useState(a.duration);
-  const [err, setErr] = useState(null);
-  const ok = () => {
-    if (!/^\d{2}:\d{2}$/.test(start)) { setErr(t("err.invalid")); return; }
-    const d = parseInt(dur, 10);
-    if (!d || d < 5 || d > 600) { setErr(t("err.range")); return; }
-    onSave(start, d); onClose();
-  };
-  return html`<${Modal} title=${t("it.time_title")} onClose=${onClose} actions=${html`<${Btn} kind="ghost" onClick=${onClose}>${t("cancel")}<//><${Btn} onClick=${ok}>${t("save")}<//>`}>
-    <p class="small muted" style="margin-top:0">${L(a.name)}</p>
-    <div class="grid g2"><${Field} id="tstart" label=${t("it.start")}><input id="tstart" type="time" class="input" value=${start} onInput=${(e) => setStart(e.target.value)} autofocus /><//>
-      <${Field} id="tdur" label=${t("it.dur")}><input id="tdur" type="number" min="5" max="600" step="5" class="input" value=${dur} onInput=${(e) => setDur(e.target.value)} /><//></div>
-    ${err && html`<div class="err mt1">${err}</div>`}
-    <div class="small faint mt2 row" style="gap:6px"><${Icon} n="lock" s=${13} />${t("it.pin_note")}</div>
-  <//>`;
-}
-
 function PlaceRow({ p, onPick, used }) {
   return html`<div class="list-item">
     <span class="tile-ic"><${Icon} n=${INTEREST_ICON[(p.tags || [])[0]] || "pin"} s=${16} /></span>
@@ -257,23 +285,24 @@ function AddModal({ oid, dest, dayLabel, used, onAdd, onClose }) {
 
 function RefineModal({ oid, data, onDone, onClose }) {
   const s = useStore();
-  const [op, setOp] = useState("lighter");
+  const [op, setOp] = useState(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const claude = s.engine === "claude";
   const go = async () => {
+    if (!op && !text.trim()) { setErr(t("it.r.need")); return; }
     setBusy(true); setErr(null);
     try {
-      const r = await api(`/itineraries/${oid}/refine`, { method: "POST", body: { op, instruction: claude ? text : "", data } });
-      onDone(r.data); onClose();
-    } catch (x) { setErr(errText(x)); setBusy(false); }
+      const r = await api(`/itineraries/${oid}/refine`, { method: "POST", body: { op, instruction: text.trim(), data } });
+      onDone(r.data, r.applied || []); onClose();
+    } catch (x) { setErr(x.code === "refine_not_understood" ? t("it.r.not_understood") : errText(x)); setBusy(false); }
   };
   return html`<${Modal} title=${t("it.refine_title")} onClose=${onClose} actions=${html`<${Btn} kind="ghost" onClick=${onClose}>${t("cancel")}<//><${Btn} icon="sparkle" loading=${busy} onClick=${go}>${t("it.r.apply")}<//>`}>
     <div class="radio-cards" role="radiogroup" style="grid-template-columns:1fr 1fr">${["lighter", "cheaper", "more_food", "more_culture", "more_nature", "route"].map((k) => html`
-      <button type="button" role="radio" aria-checked=${op === k} class=${"radio-card " + (op === k ? "on" : "")} onClick=${() => setOp(k)}><span class="radio-dot" />${t("it.r." + k)}</button>`)}</div>
-    <div class="mt3"><${Field} id="rtext" label=${t("it.r.free")} hint=${claude ? null : t("it.r.free_off")}>
-      <textarea id="rtext" class="textarea" maxlength="500" disabled=${!claude} value=${text} onInput=${(e) => setText(e.target.value)} /><//></div>
+      <button type="button" role="radio" aria-checked=${op === k} class=${"radio-card " + (op === k ? "on" : "")} onClick=${() => { setOp(op === k ? null : k); setErr(null); }}><span class="radio-dot" />${t("it.r." + k)}</button>`)}</div>
+    <div class="mt3"><${Field} id="rtext" label=${t("it.r.free")} hint=${claude ? null : t("it.r.free_local")}>
+      <textarea id="rtext" class="textarea" maxlength="500" placeholder=${t("it.r.free_ph")} value=${text} onInput=${(e) => { setText(e.target.value); setErr(null); }} /><//></div>
     ${err && html`<div class="mt2"><${Alert} kind="danger">${err}<//></div>`}
   <//>`;
 }
@@ -364,6 +393,7 @@ export function Itinerary({ oid }) {
     catch (x) { toast(errText(x), { kind: "danger" }); }
   };
   const saveTrip = async () => {
+    if (s.user.provider === "guest") { setModal({ type: "register" }); return; }
     setBusy("savetrip");
     try { await api(`/trips/${trip.id}/save`, { method: "POST" }); toast(t("it.trip_saved"), { kind: "success" }); res.reload(); }
     catch (x) { toast(errText(x), { kind: "danger" }); }
@@ -377,7 +407,6 @@ export function Itinerary({ oid }) {
   const opsFor = (i) => ({
     move: (dir) => edit((n) => { const a = n.days[day].activities; [a[i], a[i + dir]] = [a[i + dir], a[i]]; }),
     remove: () => edit((n) => { n.days[day].activities.splice(i, 1); }, () => setActive(null)),
-    time: () => setModal({ type: "time", i }),
     replace: () => setModal({ type: "replace", i }),
     comment: () => { setAbout(acts[i].id); setTab("talk"); },
   });
@@ -390,9 +419,10 @@ export function Itinerary({ oid }) {
     else list.push({ id: newId(), kind: "custom", name: { vi: custom, en: custom }, start, duration: 60, cost: 0 });
   });
 
-  let num = 0;
-  const numbered = acts.map((a) => ({ a, n: a.kind === "free" || a.kind === "rest" ? null : ++num }));
-  const points = numbered.filter((x) => x.n).map(({ a, n }) => ({ id: a.id, n, lat: a.lat, lng: a.lng, name: a.name, start: a.start, address: a.address, meal: a.kind === "meal" }));
+  const numbered = acts.map((a, i) => ({ a, n: i + 1 }));
+  const points = numbered.map(({ a, n }) => ({ id: a.id, n, lat: a.lat, lng: a.lng, name: a.name, start: t("it.s." + sessionOf(a).key), address: a.address, meal: a.kind === "meal" }));
+  const city = L(destination.name);
+  const dayRoute = gmapsDay(acts, city);
   const back = isGroup ? html`<a class="link-btn" href=${"/rooms/" + d.group_id}>← ${t("it.back_room")}</a>` : html`<a class="link-btn" href="/my-trips">← ${t("nav.trips")}</a>`;
   const statusBadge = option.status === "finalized" ? html`<span class="badge flag"><${Icon} n="check" s=${11} />${t("it.status.finalized")}</span>`
     : isGroup ? html`<span class="badge muted">${t("it.status." + option.status)}</span>`
@@ -445,13 +475,14 @@ export function Itinerary({ oid }) {
           <div class="row between mb2"><div class="card-title">${dayData.theme ? L(dayData.theme) : t("it.day", { n: dayData.day })}</div>
             <span class="small faint">${t("it.day_cost", { v: money(dayData.cost) })}</span></div>
           ${acts.length === 0 ? html`<div class="card"><${Empty} scene=${trip.destination} text="—" /></div>` : html`
-          <div class="timeline" aria-busy=${busy === "preview"} style=${busy === "preview" ? "opacity:.6;pointer-events:none" : ""}>
-            ${numbered.map(({ a, n }, i) => html`<${ActivityItem} key=${a.id} a=${a} n=${n} selected=${active === a.id} onSelect=${setActive}
-              canEdit=${perms.can_edit} canComment=${perms.can_comment} ops=${opsFor(i)} first=${i === 0} last=${i === acts.length - 1} />`)}
+          <div aria-busy=${busy === "preview"} style=${busy === "preview" ? "opacity:.6;pointer-events:none" : ""}>
+            <${Timeline} numbered=${numbered} active=${active} setActive=${setActive} perms=${perms} opsFor=${opsFor} city=${city} />
           </div>`}
-          ${perms.can_edit && html`<div class="row wrap mt2">
-            <${Btn} kind="secondary" icon="plus" onClick=${() => setModal({ type: "add" })}>${t("it.add")}<//>
-            <${Btn} kind="ghost" icon="sparkle" onClick=${() => setModal({ type: "refine" })}>${t("it.refine")}<//></div>`}
+          <div class="row wrap mt2">
+            ${perms.can_edit && html`<${Btn} kind="secondary" icon="plus" onClick=${() => setModal({ type: "add" })}>${t("it.add")}<//>
+            <${Btn} kind="ghost" icon="sparkle" onClick=${() => setModal({ type: "refine" })}>${t("it.refine")}<//>`}
+            ${dayRoute && html`<a class="btn btn-ghost" href=${dayRoute} target="_blank" rel="noopener noreferrer"><${Icon} n="route" />${t("it.gm_day")}<${Icon} n="external" s=${14} /></a>`}
+          </div>
         </div>
         <${MapView} points=${points} center=${destination} activeId=${active} onPick=${(id) => { setActive(id); const el = document.querySelector(".tl-card.on"); el && el.scrollIntoView({ block: "nearest" }); }} />
       </div>`}
@@ -464,12 +495,14 @@ export function Itinerary({ oid }) {
       <${Btn} icon="check" loading=${busy === "save"} onClick=${() => save()}>${t("it.save")}<//>
     </div>`}
 
-    ${modal && modal.type === "time" && html`<${TimeModal} a=${acts[modal.i]} onClose=${() => setModal(null)}
-      onSave=${(st, du) => edit((n) => { const a = n.days[day].activities[modal.i]; a.start = st; a.duration = du; a.pinned = true; })} />`}
     ${modal && modal.type === "replace" && html`<${ReplaceModal} oid=${oid} a=${acts[modal.i]} onClose=${() => setModal(null)}
       onPick=${(p) => edit((n) => { const a = n.days[day].activities[modal.i]; n.days[day].activities[modal.i] = { id: a.id, kind: p.meal ? "meal" : "visit", place_id: p.id, start: a.start, duration: p.duration, pinned: a.pinned }; })} />`}
     ${modal && modal.type === "add" && html`<${AddModal} oid=${oid} dest=${trip.destination} dayLabel=${t("it.day", { n: dayData.day })} used=${usedIds} onAdd=${addStop} onClose=${() => setModal(null)} />`}
-    ${modal && modal.type === "refine" && html`<${RefineModal} oid=${oid} data=${data} onClose=${() => setModal(null)} onDone=${(nd) => { setDraft(nd); toast(t("it.r.done"), { kind: "success" }); }} />`}
+    ${modal && modal.type === "refine" && html`<${RefineModal} oid=${oid} data=${data} onClose=${() => setModal(null)} onDone=${(nd, applied) => { setDraft(nd); toast(applied.length ? t("it.r.done_list", { list: applied.map((x) => L(x)).join(" · ") }) : t("it.r.done"), { kind: "success" }); }} />`}
+    ${modal && modal.type === "register" && html`<${Modal} title=${t("gs.save_t")} onClose=${() => setModal(null)} actions=${html`
+        <${Btn} kind="ghost" onClick=${() => navigate("/login?next=" + encodeURIComponent("/itinerary/" + oid))}>${t("nav.login")}<//>
+        <${Btn} icon="user" onClick=${() => navigate("/register?next=" + encodeURIComponent("/itinerary/" + oid))}>${t("nav.register")}<//>`}>
+      <p class="muted" style="margin:0">${t("gs.save_d")}</p><//>`}
     ${modal && modal.type === "versions" && html`<${VersionsModal} versions=${versions} current=${option.version} canEdit=${perms.can_edit} dirty=${dirty} onRestore=${restore} onClose=${() => setModal(null)} />`}
     ${modal && modal.type === "finalize" && html`<${Confirm} title=${t("it.finalize")} text=${t("it.finalize_confirm")} confirmLabel=${t("it.finalize")} onClose=${() => setModal(null)}
       onConfirm=${async () => { const r = await api(`/itineraries/${oid}/finalize`, { method: "POST" }); res.setData(r); toast(t("pl.finalized"), { kind: "success" }); }} />`}

@@ -272,4 +272,16 @@ def refine(snapshot_like, data, op, instruction=None):
         for k in ("title", "description", "fit", "suggested_members"):
             new[k] = data.get(k, new.get(k))
         return new
-    return engine.refine_local(dest, data, op or "route", prof, travelers)
+    applied = []
+    if instruction:
+        data, applied = engine.refine_text(dest, data, instruction, prof, travelers)
+        if not applied and not op:
+            raise RefineNotUnderstood()
+    if op:
+        data = engine.refine_local(dest, data, op, prof, travelers)
+    data["_applied"] = applied
+    return data
+
+
+class RefineNotUnderstood(Exception):
+    pass

@@ -1,7 +1,7 @@
 import { html, useState } from "../lib.js";
 import { Icon } from "../icons.js";
 import { Scene } from "../scenes.js";
-import { Btn, Empty, ErrorBlock, Skel, SkelCards } from "../ui.js";
+import { Btn, Alert, Empty, ErrorBlock, Skel, SkelCards } from "../ui.js";
 import { api, store, useStore, navigate, useLoad, useEvents } from "../store.js";
 import { t, L, ago, fmtDate } from "../i18n.js";
 import { TripCard, tripHref, todayISO } from "../common.js";
@@ -29,13 +29,14 @@ export function Dashboard() {
       <div class="right">${fmtDate(today)}</div>
     </div>
 
+    ${s.user.provider === "guest" && html`<div class="mb3"><${Alert} icon="user" action=${html`<${Btn} size="sm" onClick=${() => navigate("/register?next=/")}>${t("nav.register")}<//>`}>${t("gs.banner")}<//></div>`}
     <div class="grid g3">
       <a class="card link action-card" href="/plan/personal">
         <div class="art"><${Scene} id="hoian" /></div>
         <div class="body"><span class="kicker">01</span><div class="h3">${t("dash.personal")}</div><p class="small muted" style="margin:0">${t("dash.personal_d")}</p></div>
         <span class="round-btn go"><${Icon} n="arrowR" s=${16} /></span>
       </a>
-      <a class="card link action-card" href="/groups/new">
+      <a class="card link action-card" href=${s.user.provider === "guest" ? "/register?next=/groups/new" : "/groups/new"}>
         <div class="art"><${Scene} id="halong" /></div>
         <div class="body"><span class="kicker">02</span><div class="h3">${t("dash.group")}</div><p class="small muted" style="margin:0">${t("dash.group_d")}</p></div>
         <span class="round-btn go"><${Icon} n="arrowR" s=${16} /></span>
@@ -83,7 +84,8 @@ export function Dashboard() {
 }
 
 export function PlanChooser() {
-  useStore();
+  const s = useStore();
+  const groupHref = s.user && s.user.provider !== "guest" ? "/groups/new" : "/register?next=/groups/new";
   return html`<div class="frame glass narrow">
     <div class="page-head"><div><p class="eyebrow">${t("nav.plan")}</p><h1 class="h1">${t("plan.choose")}</h1></div></div>
     <div class="grid g2">
@@ -91,7 +93,7 @@ export function PlanChooser() {
         <div class="art"><${Scene} id="dalat" /></div>
         <div class="body"><div class="h3">${t("dash.personal")}</div><p class="small muted" style="margin:0">${t("dash.personal_d")}</p></div>
         <span class="round-btn go"><${Icon} n="arrowR" s=${16} /></span></a>
-      <a class="card link action-card" href="/groups/new">
+      <a class="card link action-card" href=${groupHref}>
         <div class="art"><${Scene} id="danang" /></div>
         <div class="body"><div class="h3">${t("dash.group")}</div><p class="small muted" style="margin:0">${t("dash.group_d")}</p></div>
         <span class="round-btn go"><${Icon} n="arrowR" s=${16} /></span></a>

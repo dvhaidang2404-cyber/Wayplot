@@ -239,6 +239,8 @@ input[type="date"].input { color-scheme: inherit; }
 .alert.danger { border-color: rgba(200, 16, 46, .55); background: var(--danger-bg); }
 .alert.danger .alert-icon { color: var(--danger); }
 .alert .alert-icon { color: var(--accent); flex: none; margin-top: 1px; }
+.alert.warn { border-color: rgba(217, 160, 40, .7); background: rgba(217, 181, 107, .16); }
+.alert.warn .alert-icon { color: #B07A12; }
 .check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13.5px; }
 .check input { width: 18px; height: 18px; accent-color: #5C0F1F; margin-top: 2px; flex: none; }
 .switch { position: relative; width: 42px; height: 24px; border-radius: 999px; background: var(--track); border: 1px solid var(--line-2); cursor: pointer; flex: none; transition: background .2s; }
@@ -454,7 +456,7 @@ svg.scene { display: block; width: 100%; height: 100%; }
 .leaflet-tile-pane { filter: sepia(.28) saturate(.8) brightness(1.02); }
 .leaflet-popup-content-wrapper { border-radius: 12px; }
 .timeline { display: flex; flex-direction: column; }
-.tl-item { display: grid; grid-template-columns: 54px 34px minmax(0, 1fr); gap: 0 12px; position: relative; }
+.tl-item { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 0 12px; position: relative; }
 .tl-time { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; padding-top: 12px; text-align: right; }
 .tl-time .end { display: block; font-weight: 400; color: var(--text-3); font-size: 11.5px; }
 .tl-rail { position: relative; display: flex; justify-content: center; }
@@ -472,8 +474,18 @@ svg.scene { display: block; width: 100%; height: 100%; }
 .tl-meta span { display: inline-flex; align-items: center; gap: 5px; }
 .tl-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .tl-actions .btn { --h: 30px; padding: 0 9px; font-size: 12px; letter-spacing: .02em; text-transform: none; font-weight: 500; }
-.tl-travel { grid-column: 3; font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; padding: 4px 2px 6px; }
+.tl-travel { grid-column: 2; font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; padding: 4px 2px 6px; }
 .tl-travel .ln { color: var(--accent); }
+.tl-session + .tl-session { margin-top: 14px; }
+.tl-session-head { display: flex; align-items: center; gap: 10px; padding: 6px 2px 8px; border-bottom: 1px dashed var(--line); margin-bottom: 4px; }
+.tl-session-head .ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--card-2); color: var(--accent); border: 1px solid var(--line); }
+.tl-session-head .lb { font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+.gmaps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.gmaps-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 10px; border-radius: 10px; font-size: 13px; font-weight: 600; text-decoration: none; border: 1.5px solid; transition: filter .15s; }
+.gmaps-btn:hover { filter: brightness(.96); }
+.gmaps-btn.view { color: #2F55C8; background: #EEF3FF; border-color: #A9C0F5; }
+.gmaps-btn.dir { color: #23704A; background: #EAF7EF; border-color: #A8DDBE; }
+@media (max-width: 420px) { .gmaps-row { grid-template-columns: 1fr; } }
 .unsaved-bar { position: sticky; bottom: 18px; z-index: 30; margin-top: 18px; border-radius: 16px; padding: 12px 14px 12px 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .budget-bars { display: flex; flex-direction: column; gap: 14px; }
 .budget-bar .top { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 6px; gap: 10px; }
@@ -538,7 +550,7 @@ svg.scene { display: block; width: 100%; height: 100%; }
   .footer-links { justify-content: flex-start; }
   .auth-form { padding: 28px 20px; }
   .map-box { height: 300px; min-height: 300px; }
-  .tl-item { grid-template-columns: 44px 28px minmax(0, 1fr); gap: 0 8px; }
+  .tl-item { grid-template-columns: 30px minmax(0, 1fr); gap: 0 8px; }
   .mobile-cta { display: flex; position: fixed; left: 10px; right: 10px; bottom: 84px; z-index: 45; }
   .mobile-cta .btn { width: 100%; box-shadow: var(--shadow); }
   .has-mobile-cta .desktop-cta { display: none; }

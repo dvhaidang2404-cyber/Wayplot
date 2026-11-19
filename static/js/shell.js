@@ -143,7 +143,8 @@ function TopBar() {
         <${Pop} open=${pop === "user"} setOpen=${() => setPop(null)} btn=${html`
           <button class="icon-btn" style="width:auto;padding:0 2px" aria-label=${s.user.name} aria-haspopup="menu" aria-expanded=${pop === "user"} onClick=${() => toggle("user")}>
             <${Avatar} name=${s.user.name} initials=${s.user.initials} /></button>`}>
-          <${UserMenu} close=${() => setPop(null)} /><//>`
+          <${UserMenu} close=${() => setPop(null)} /><//>
+        ${s.user.provider === "guest" && !["/register", "/login"].includes(s.route.path) && html`<a class="btn btn-primary btn-sm" href=${"/register?next=" + encodeURIComponent(s.route.path)}>${t("nav.register")}</a>`}`
       : s.user === null && html`
         <a class="btn btn-ghost btn-sm hide-sm" href="/login">${t("nav.login")}</a>
         <a class="btn btn-primary btn-sm" href="/register">${t("nav.register")}</a>`}

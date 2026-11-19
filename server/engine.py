@@ -7,6 +7,7 @@ configured) only chooses and explains activities from verified places.
 """
 import hashlib
 import math
+import re
 from collections import Counter
 from datetime import date, timedelta
 
@@ -805,3 +806,116 @@ def custom_activity(name, start="09:00", duration=60, cost=0):
             "tags": [], "start": start, "duration": duration, "cost": cost, "verified": False,
             "note": {"vi": "Không xác minh được địa điểm — cần xem lại.",
                      "en": "Place could not be verified — needs review."}, "pinned": False}
+
+
+# ------------------------------------------------- free-text refinements (local)
+# Without Claude, a free-text request is read for known intents (keywords) and
+# for place names to drop or add. Anything not understood is reported back.
+_INTENTS = {
+    "lighter": ["nhẹ nhàng", "nhẹ hơn", "thong thả", "chậm", "ít điểm", "bớt điểm", "giảm điểm", "đỡ mệt", "mệt",
+                "nghỉ ngơi", "nghỉ nhiều", "thư giãn", "relax", "slower", "lighter", "fewer", "less busy", "rest"],
+    "cheaper": ["rẻ", "tiết kiệm", "ít tiền", "giảm chi", "bớt tốn", "đỡ tốn", "đắt", "cheap", "cheaper", "budget",
+                "save money", "less money"],
+    "more_food": ["ăn", "ẩm thực", "món", "đặc sản", "quán", "cà phê", "cafe", "coffee", "food", "eat", "dining"],
+    "more_culture": ["văn hóa", "lịch sử", "bảo tàng", "di tích", "chùa", "đền", "phố cổ", "culture", "history",
+                     "museum", "temple", "heritage"],
+    "more_nature": ["thiên nhiên", "biển", "núi", "thác", "rừng", "công viên", "cảnh đẹp", "nature", "beach",
+                    "mountain", "park", "outdoor"],
+    "route": ["tuyến đường", "lộ trình", "đường đi", "gần nhau", "ít di chuyển", "đỡ di chuyển", "bớt di chuyển", "giảm di chuyển", "đi lại",
+              "quãng đường", "thuận đường", "route", "closer", "travel less", "less travel"],
+}
+_INTENT_LABEL = {
+    "lighter": ("Nhẹ nhàng hơn", "Lighter pace"), "cheaper": ("Tiết kiệm hơn", "Cheaper"),
+    "more_food": ("Thêm ẩm thực & cà phê", "More food & cafes"), "more_culture": ("Thêm văn hóa", "More culture"),
+    "more_nature": ("Thêm thiên nhiên", "More nature"), "route": ("Tối ưu tuyến đường", "Optimise route"),
+}
+_DROP_VERBS = ["bỏ", "xóa", "xoá", "loại", "không đi", "không muốn đi", "không thích", "remove", "skip",
+               "drop", "without"]
+_ADD_VERBS = ["thêm", "muốn đi", "đi thêm", "cho thêm", "ghé", "add", "include", "visit"]
+_GENERIC = {"cho", "toi", "minh", "voi", "nhe", "nha", "di", "o", "the", "a", "an", "to", "please", "them", "bo", "va",
+            "giup", "dum", "luon", "nua", "ha", "nhi", "vao", "ra", "lai", "the", "nao"}
+
+
+def _kw_hit(text_raw, text_flat, kw):
+    if re.search(r"(?<!\w)" + re.escape(kw) + r"(?!\w)", text_raw):
+        return True
+    flat = catalog.strip_accents(kw)
+    return len(flat) >= 4 and re.search(r"(?<!\w)" + re.escape(flat) + r"(?!\w)", text_flat) is not None
+
+
+def _phrases_after(text_raw, verbs):
+    """Phrases following any of `verbs`, as (accent-free phrase, (start, end) span in text_raw)."""
+    out = []
+    for v in verbs:
+        for m in re.finditer(r"(?<!\w)" + re.escape(v) + r"(?!\w)\s+([^,.;!?\n]+)", text_raw):
+            pos = m.start(1)
+            for part in re.split(r"(\s+(?:và|and|với|hoặc|or)\s+)", m.group(1)):
+                if re.fullmatch(r"\s+(?:và|and|với|hoặc|or)\s+", part):
+                    pos += len(part)
+                    continue
+                words = [w for w in catalog.strip_accents(part).split() if w]
+                while words and words[0] in _GENERIC:
+                    words.pop(0)
+                while words and words[-1] in _GENERIC:
+                    words.pop()
+                if len(" ".join(words)) >= 3:
+                    out.append((" ".join(words), (m.start(), pos + len(part))))
+                pos += len(part)
+    return out
+
+
+def _name_match(phrase, place_name):
+    names = [catalog.strip_accents(place_name.get("vi", "")), catalog.strip_accents(place_name.get("en", ""))]
+    return any(phrase in n or (len(n) >= 4 and n in phrase) for n in names if n)
+
+
+def refine_text(dest, data, text, prof, travelers):
+    """Apply a free-text request locally. Returns (data, applied) where `applied`
+    lists what was understood as {vi, en} labels; empty means nothing matched."""
+    raw = re.sub(r"\s+", " ", (text or "").lower()).strip()
+    flat = catalog.strip_accents(raw)
+    applied = []
+
+    consumed = []  # spans naming specific places; ignored when reading general intents
+
+    # 1. drop named stops already in the plan. Every drop phrase is set aside for intent
+    #    reading, so "bỏ quán ăn" never reads as "more food".
+    for phrase, span in _phrases_after(raw, _DROP_VERBS):
+        consumed.append(span)
+        for day in data["days"]:
+            for a in list(day["activities"]):
+                if a.get("kind") in ("visit", "meal", "custom") and _name_match(phrase, a.get("name") or {}):
+                    day["activities"].remove(a)
+                    n = a.get("name") or {}
+                    applied.append({"vi": "Bỏ " + n.get("vi", ""), "en": "Removed " + n.get("en", n.get("vi", ""))})
+
+    # 2. add named places from the destination's directory
+    used = {a.get("place_id") for d in data["days"] for a in d["activities"]}
+    for phrase, span in _phrases_after(raw, _ADD_VERBS):
+        p = next((p for p in catalog.PLACES_BY_DEST[dest] if p["id"] not in used and _name_match(phrase, p["name"])), None)
+        if not p:
+            continue
+        consumed.append(span)
+        day = min(data["days"], key=lambda d: sum(1 for a in d["activities"] if a["kind"] == "visit"))
+        acts = day["activities"]
+        last_visit = max((i for i, a in enumerate(acts) if a["kind"] == "visit"), default=len(acts) - 1)
+        prev = acts[last_visit] if acts else None
+        start = to_min(prev["start"]) + prev["duration"] + 20 if prev else 9 * 60
+        acts.insert(last_visit + 1, _act_from_place(p, "meal" if p["meal"] else "visit", start, p["duration"]))
+        used.add(p["id"])
+        applied.append({"vi": "Thêm " + p["name"]["vi"], "en": "Added " + p["name"]["en"]})
+
+    for a, b in consumed:
+        raw = raw[:a] + " " * (b - a) + raw[b:]
+    flat = catalog.strip_accents(raw)
+
+    # 3. general intents
+    for op, kws in _INTENTS.items():
+        if any(_kw_hit(raw, flat, k) for k in kws):
+            data = refine_local(dest, data, op, prof, travelers)
+            applied.append({"vi": _INTENT_LABEL[op][0], "en": _INTENT_LABEL[op][1]})
+
+    if applied:
+        reflow(data, data.get("transport", prof["transport"]), travelers)
+        compute_budget(dest, data, prof, travelers)
+    return data, applied

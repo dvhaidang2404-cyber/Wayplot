@@ -79,7 +79,8 @@ Khi đã đăng nhập, có thể đổi tài khoản từ menu ảnh đại di�
 
 ## Bản đồ
 
-- Bản đồ dùng Leaflet. Ô bản đồ lấy từ OpenStreetMap; nếu mạng chặn OSM, app tự chuyển sang Esri World Street Map và ghi nhớ lựa chọn trong 1 ngày. Dịch vụ của Esri có điều khoản sử dụng riêng; hãy xem lại trước khi triển khai công khai.
+- Bản đồ dùng Leaflet. Ô bản đồ lấy từ Esri World Street Map (không cần khóa); nếu không tải được, app chuyển sang bản đồ HOT của OSM France và ghi nhớ trong 1 ngày. Không dùng tile.openstreetmap.org vì chính sách của OSM chặn ứng dụng kiểu này. Dịch vụ của Esri có điều khoản sử dụng riêng; hãy xem lại trước khi dùng thương mại.
+- Mỗi điểm trong lịch trình có nút mở Google Maps (xem vị trí, chỉ đường) và mỗi ngày có nút mở cả lộ trình trên Google Maps.
 - Tọa độ và giá trong danh mục mẫu là ước tính, để demo. Cần kiểm tra lại trước khi dùng thật.
 - Địa điểm người dùng tự nhập chỉ có tọa độ khi khớp danh mục hoặc khi Google Places xác minh được (cần `GOOGLE_MAPS_API_KEY`). Phần Google **chưa chạy thử**.
 

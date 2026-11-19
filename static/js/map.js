@@ -4,16 +4,18 @@ import { html, useEffect, useRef, useState } from "./lib.js";
 import { Icon } from "./icons.js";
 import { t, L as tr } from "./i18n.js";
 
-// Tile providers, tried in order. Some networks block tile.openstreetmap.org,
-// so the map falls back to the next provider when tiles fail to load.
+// Tile providers, tried in order. Keyless providers only. tile.openstreetmap.org and CARTO
+// are not used: OSM's usage policy blocks apps like this one and CARTO now needs an API key,
+// and both answer with an image ("Access blocked" / "API key required") that never
+// triggers the fallback.
 const PROVIDERS = [
-  { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", max: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' },
-  { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", max: 18,
+  { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", max: 19,
     attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS user community" },
+  { url: "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", max: 19, subdomains: "abc",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, tiles: HOT / OSM France' },
 ];
 // Remember a fallback for a day so a network that blocks the first provider doesn't retry it on every map.
-const TILE_KEY = "wayplot.tiles";
+const TILE_KEY = "wayplot.tiles3";
 let providerIdx = (() => {
   try {
     const v = JSON.parse(localStorage.getItem(TILE_KEY) || "null");
@@ -22,7 +24,7 @@ let providerIdx = (() => {
 })();
 function addTiles(m, idx) {
   const p = PROVIDERS[idx];
-  const layer = window.L.tileLayer(p.url, { maxZoom: p.max, attribution: p.attribution });
+  const layer = window.L.tileLayer(p.url, { maxZoom: p.max, attribution: p.attribution, subdomains: p.subdomains || "abc", detectRetina: false });
   let ok = false, errs = 0;
   layer.on("tileload", () => { ok = true; });
   layer.on("tileerror", () => {

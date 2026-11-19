@@ -1,6 +1,6 @@
 import { html, useState, useRef } from "../lib.js";
 import { Icon } from "../icons.js";
-import { Btn, Seg, Confirm, ErrorBlock, SkelCards, Empty, useOutside } from "../ui.js";
+import { Btn, Alert, Seg, Confirm, ErrorBlock, SkelCards, Empty, useOutside } from "../ui.js";
 import { api, store, useStore, navigate, useLoad, toast } from "../store.js";
 import { t, errText } from "../i18n.js";
 import { TripCard, tripHref, PageHead } from "../common.js";
@@ -31,12 +31,13 @@ function TripMenu({ c, reload, filter }) {
 }
 
 export function MyTrips() {
-  useStore();
+  const s = useStore();
   const [filter, setFilter] = useState(store.route.query.get("filter") || "all");
   const { data, error, loading, reload } = useLoad(() => api("/users/me/trips?filter=" + filter), [filter]);
   const filters = ["all", "personal", "group", "upcoming", "past", "archived"];
   return html`<div class="frame glass wide">
     <${PageHead} eyebrow=${t("brand.sub")} title=${t("tr.title")} right=${html`<${Btn} icon="plus" size="sm" onClick=${() => navigate("/plan")}>${t("nav.plan")}<//>`} />
+    ${s.user.provider === "guest" && html`<div class="mb3"><${Alert} icon="user" action=${html`<${Btn} size="sm" onClick=${() => navigate("/register?next=/my-trips")}>${t("nav.register")}<//>`}>${t("gs.banner")}<//></div>`}
     <div class="mb3" style="overflow-x:auto"><${Seg} value=${filter} onChange=${(v) => { setFilter(v); history.replaceState({}, "", "/my-trips?filter=" + v); }} label=${t("tr.title")}
       options=${filters.map((f) => ({ value: f, label: t("tr.f." + f) }))} /></div>
     ${loading ? html`<${SkelCards} n=${3} />` : error ? html`<${ErrorBlock} error=${error} onRetry=${() => reload(false)} />`

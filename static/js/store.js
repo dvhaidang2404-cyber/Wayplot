@@ -131,6 +131,19 @@ export function requireAuth() {
   return !!store.user;
 }
 
+/** Visitors can try planning without an account: start a guest session on demand.
+ *  Registering later upgrades the same account and keeps its trips. */
+let guestP = null;
+export function ensureGuest() {
+  if (store.user) return Promise.resolve(store.user);
+  if (!guestP) {
+    guestP = api("/auth/guest", { method: "POST", body: { lang: store.lang } })
+      .then((r) => { afterLogin(r.user, false); return r.user; })
+      .catch((e) => { guestP = null; requireAuth(); throw e; });
+  }
+  return guestP;
+}
+
 // --------------------------------------------------------------------- toasts
 let toastId = 0;
 export function toast(text, opts = {}) {
@@ -214,6 +227,7 @@ export function afterLogin(user, adoptLang = true) {
 export async function logout() {
   try { await api("/auth/logout", { method: "POST" }); } catch { /* ignore */ }
   disconnect();
+  guestP = null;
   set({ user: null, notifs: [], unread: 0 });
   navigate("/", { force: true });
 }

@@ -120,6 +120,9 @@ export function Room({ gid }) {
     </div>
     ${group.notes && html`<div class="mb3"><${Alert} icon="message">${group.notes}<//></div>`}
     ${group.room_status === "closed" && html`<div class="mb3"><${Alert} icon="lock">${t("rm.closed_note")}<//></div>`}
+    ${!locked && options.length > 0 && (d.after_plan || []).length > 0 && html`<div class="mb3"><${Alert} kind="warn" icon="alert"
+      action=${isLeader && html`<${Btn} size="sm" icon="sparkle" onClick=${() => navigate("/rooms/" + gid + "/synthesis")}>${t("rm.regen")}<//>`}>
+      <strong>${t("rm.after_plan_t", { names: d.after_plan.map((x) => x.name).join(", ") })}</strong> ${isLeader ? t("rm.after_plan_leader") : t("rm.after_plan_member")}<//></div>`}
     ${group.room_status === "finalized" && html`<div class="mb3"><${Alert} icon="check" action=${finalized && html`<${Btn} size="sm" onClick=${() => navigate("/itinerary/" + finalized.id)}>${t("pl.view")}<//>`}>${t("rm.finalized_note")}<//></div>`}
 
     <div class="grid g-room">
@@ -137,7 +140,8 @@ export function Room({ gid }) {
               <${Avatar} name=${m.name} initials=${m.initials} leader=${m.is_leader} />
               <div class="grow"><div class="nm">${m.name}${m.id === s.user.id && html`<span class="tiny faint">(${store.lang === "en" ? "you" : "bạn"})</span>`}
                 ${m.is_leader && html`<span class="badge leader"><${Icon} n="crown" s=${11} />${t("rm.leader")}</span>`}
-                ${m.can_edit && !m.is_leader && html`<span class="badge muted"><${Icon} n="edit" s=${11} />${t("rm.editor")}</span>`}</div>
+                ${m.can_edit && !m.is_leader && html`<span class="badge muted"><${Icon} n="edit" s=${11} />${t("rm.editor")}</span>`}
+                ${m.after_plan && html`<span class="badge flag" title=${t("rm.after_plan_badge_d")}><${Icon} n="alert" s=${11} />${t("rm.after_plan_badge")}</span>`}</div>
                 <div class="tiny faint">${ago(m.joined_at)}</div>
                 ${m.shared_note && html`<div class="shared-note small">“${m.shared_note}”</div>`}</div>
               <${StatusChip} status=${m.status} />
@@ -158,6 +162,7 @@ export function Room({ gid }) {
                   ${o.status === "finalized" && html`<span class="badge solid">${t("pl.finalized")}</span>`}<${Icon} n="chevR" />
                 </a>`)}</div>`}
               ${!locked && (isLeader ? html`<div class="stack">
+                  ${options.length === 0 && html`<${Alert} kind="warn" icon="alert">${t("rm.wait_all")}<//>`}
                   ${!ready.all_ready && ready.waiting.length > 0 && html`<div class="small muted">${t("rm.waiting", { names: ready.waiting.map((w) => w.name).join(", ") })}</div>`}
                   <div class="row wrap">
                     <${Btn} icon="sparkle" disabled=${!ready.all_ready} onClick=${() => navigate("/rooms/" + gid + "/synthesis")}>${t("rm.generate")}<//>
@@ -283,6 +288,7 @@ export function MemberPrefs({ gid }) {
         ${general && html`<${Alert} kind="danger">${general}<//>`}
         ${locked && html`<${Alert} icon="lock">${t("rm.closed_note")}<//>`}
         ${d.me.ready && html`<${Alert} icon="info">${t("mp.reset_warn")}<//>`}
+        ${!locked && d.options.length > 0 && html`<${Alert} kind="warn" icon="alert">${t("mp.after_plan")}<//>`}
         <div class="kicker">${t("pf.budget")}</div>
         <${BudgetFields} value=${p} set=${set} errors=${errors} label=${t("mp.budget")} />
         <hr class="rule" />
@@ -347,7 +353,7 @@ export function Synthesis({ gid }) {
   return html`<div class="frame glass wide">
     <div class="page-head"><div><p class="eyebrow">${back}</p><h1 class="h1">${t("sy.title")}</h1></div>
       <div class="right"><span class="badge muted"><${Icon} n="sparkle" s=${12} />${t("engine." + s.engine)}</span></div></div>
-    ${excluded.length > 0 && html`<div class="mb3"><${Alert} icon="info">${t("sy.excluded", { names: excluded.map((e) => e.name).join(", ") })}<//></div>`}
+    ${excluded.length > 0 && html`<div class="mb3"><${Alert} kind="warn" icon="alert">${t("sy.excluded", { names: excluded.map((e) => e.name).join(", ") })} ${t("sy.no_auto")}<//></div>`}
     <div class="grid g-main">
       <div class="stack lg">
         <div class="card">
@@ -393,6 +399,7 @@ export function Synthesis({ gid }) {
             })}
           </div>
           <div class="small faint mt2">${t("sy.quota", { r: quota.remaining, l: quota.limit })}</div>
+          <div class="small muted mt2 row" style="gap:6px;align-items:flex-start"><${Icon} n="info" s=${14} /><span>${t("sy.snapshot_note")}</span></div>
           ${err && html`<div class="mt2"><${Alert} kind="danger">${errText(err)}<//></div>`}
           <div class="mt3"><${Btn} size="lg" block icon="sparkle" loading=${busy} disabled=${quota.remaining <= 0} onClick=${generate}>${t("sy.generate")}<//></div>
         </div>`}

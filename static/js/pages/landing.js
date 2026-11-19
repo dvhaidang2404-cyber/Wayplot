@@ -8,7 +8,7 @@ import { getDestinations, PageHead } from "../common.js";
 
 function DestCircles({ list }) {
   return html`<div class="dest-circles">${list.map((d) => html`
-    <button class="dest-circle" onClick=${() => navigate((store.user ? "/plan/personal?dest=" : "/register?next=" + encodeURIComponent("/plan/personal?dest=")) + d.id)}>
+    <button class="dest-circle" onClick=${() => navigate("/plan/personal?dest=" + d.id)}>
       <span class="ring"><${Scene} id=${d.id} label=${L(d.name)} /></span><span class="name">${L(d.name)}</span>
     </button>`)}</div>`;
 }
@@ -16,7 +16,7 @@ function DestCircles({ list }) {
 function Featured({ items, dests }) {
   return html`<div class="grid g4">${items.map((f) => {
     const d = dests.find((x) => x.id === f.dest);
-    return html`<a class="card link featured-card" href=${store.user ? "/plan/personal?dest=" + f.dest : "/register"}>
+    return html`<a class="card link featured-card" href=${"/plan/personal?dest=" + f.dest}>
       <div class="thumb"><${Scene} id=${f.dest} />${f.new && html`<span class="corner-tag">${t("land.new")}</span>`}</div>
       <div class="body">
         <div class="card-title" style="font-size:15.5px">${L(f.name)}</div>
@@ -50,7 +50,7 @@ export function Landing() {
         <div class="hero-feats">${feats.map((k) => html`<span>${t(k)}</span>`)}</div>
         <p class="muted" style="max-width:560px;font-size:15px;margin:20px 0 26px">${t("land.lead")}</p>
         <div class="row wrap">
-          <${Btn} size="lg" iconR="arrowR" onClick=${() => navigate(store.user ? "/plan" : "/register?next=/plan")}>${t("land.cta")}<//>
+          <${Btn} size="lg" iconR="arrowR" onClick=${() => navigate("/plan")}>${t("land.cta")}<//>
           <${Btn} kind="secondary" size="lg" icon="key" onClick=${() => navigate("/join")}>${t("land.join")}<//>
         </div>
       </div>
@@ -74,11 +74,11 @@ export function Landing() {
     <section class="big-blocks">
       <div class="burgundy big-block"><${Silk} />
         <div style="position:relative"><span class="kicker">01</span><h2 class="h2 mt1">${t("land.block1")}</h2><p class="muted">${t("land.block1d")}</p></div>
-        <div style="position:relative"><${Btn} kind="gold" iconR="arrowR" onClick=${() => navigate(store.user ? "/plan/personal" : "/register?next=/plan/personal")}>${t("land.explore")}<//></div>
+        <div style="position:relative"><${Btn} kind="gold" iconR="arrowR" onClick=${() => navigate("/plan/personal")}>${t("land.explore")}<//></div>
       </div>
       <div class="burgundy deep big-block"><${Silk} />
         <div style="position:relative"><span class="kicker">02</span><h2 class="h2 mt1">${t("land.block2")}</h2><p class="muted">${t("land.block2d")}</p></div>
-        <div style="position:relative"><${Btn} kind="gold" iconR="arrowR" onClick=${() => navigate(store.user ? "/groups/new" : "/register?next=/groups/new")}>${t("land.create_room")}<//></div>
+        <div style="position:relative"><${Btn} kind="gold" iconR="arrowR" onClick=${() => navigate(store.user && store.user.provider !== "guest" ? "/groups/new" : "/register?next=/groups/new")}>${t("land.create_room")}<//></div>
       </div>
     </section>
 
@@ -117,7 +117,7 @@ export function Explore() {
             <div class="h3">${L(d.name)}</div>
             <div class="small faint">${L(d.region)} · ${t("ex.places", { n: d.place_count })}</div>
             <p class="small muted" style="margin:4px 0 10px">${L(d.tagline)}</p>
-            <${Btn} kind="secondary" size="sm" iconR="arrowR" onClick=${() => navigate((store.user ? "" : "/register?next=") + "/plan/personal?dest=" + d.id)}>${t("ex.plan_here")}<//>
+            <${Btn} kind="secondary" size="sm" iconR="arrowR" onClick=${() => navigate("/plan/personal?dest=" + d.id)}>${t("ex.plan_here")}<//>
           </div></div>`)}</div>
       <div class="section-rule mt6"><h2 class="h2">${t("land.featured")}</h2></div>
       <${Featured} items=${data.featured} dests=${data.dests} />
